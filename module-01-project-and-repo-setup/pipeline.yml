@@ -1,1 +1,55 @@
 
+# Trigger CD when CI executed succesfully
+resources:
+  pipelines:
+    - pipeline: eshoponweb-ci
+      source: eshoponweb-ci # given pipeline name
+      trigger: true
+
+  repositories:
+    - repository: eShopSecurity
+      type: git
+      name: eShopSecurity/eShopSecurity #name of the project and repository
+
+variables:
+  - template: eshoponweb-secure-variables.yml@eShopSecurity #name of the template and repository
+  
+stages:
+- stage: Deploy
+  displayName: Deploy to WebApp
+  jobs:
+  - job: Deploy
+    pool:
+      vmImage: windows-latest
+    steps:
+    #download artifacts
+    - download: eshoponweb-ci
+  
+    # Deploy App Service Plan + App Service using Bicep
+    - task: AzureResourceManagerTemplateDeployment@3
+      displayName: Deploy App Service Plan Bicep
+      inputs:
+        deploymentScope: 'Resource Group'
+        azureResourceManagerConnection: '$(azureserviceconnection)'
+        subscriptionId: '$(subscriptionid)'
+        action: 'Create Or Update Resource Group'
+        resourceGroupName: '$(resource-group)'
+        location: '$(location)'
+        templateLocation: 'Linked artifact'
+        csmFile: '$(Pipeline.Workspace)/eshoponweb-ci/Bicep/webapp.bicep'
+        overrideParameters: '-webAppName $(webappname) -location $(location)'
+        deploymentMode: 'Incremental'
+        deploymentOutputs: 'asp-json'
+    
+    #Publish Website to Azure WebApp
+    - task: AzureRmWebAppDeployment@4
+      displayName: Publish Website to WebApp
+      inputs:
+        ConnectionType: 'AzureRM'
+        azureSubscription: '$(azureserviceconnection)'
+        appType: 'webApp'
+        WebAppName: '$(webappname)'
+        packageForLinux: '$(Pipeline.Workspace)/eshoponweb-ci/Website/Web.zip'
+      
+
+    
