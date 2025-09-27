@@ -1,3 +1,4 @@
+# This pipeline is part of a learning project. All values are placeholders or from sandbox environments.
 
 # Trigger CD when CI executed succesfully
 resources:
